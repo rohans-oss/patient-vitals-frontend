@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patient Vitals Tracker</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Splash / Intro Animation -->
+    <div id="splash" class="splash">
+      <div class="splash-inner" aria-label="Intro section">
+        <!-- Circular HUD-inspired SVG (light theme) -->
+        <svg class="hud" viewBox="0 0 400 400" width="280" height="280">
+          <!-- Outer rotating ring -->
+          <defs>
+            <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#13b38b"/>
+              <stop offset="50%" stop-color="#f5c022"/>
+              <stop offset="100%" stop-color="#ef4444"/>
+            </linearGradient>
+            <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="1.2"/>
+            </filter>
+          </defs>
+          <circle cx="200" cy="200" r="170" fill="none" stroke="url(#ring)" stroke-width="8" stroke-linecap="round" stroke-dasharray="70 25 70 25 70 25 70 25">
+            <animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 200 200" to="360 200 200" dur="6s" repeatCount="indefinite"/>
+          </circle>
+
+          <!-- Tick ring -->
+          <g filter="url(#soft)">
+            <g>
+              <circle cx="200" cy="200" r="150" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-dasharray="2 8">
+                <animateTransform attributeName="transform" type="rotate" from="360 200 200" to="0 200 200" dur="12s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+          </g>
+
+          <!-- Central waveform (simulated vitals) -->
+          <g transform="translate(0,0)">
+            <path id="wave" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round" d="M20 200 Q 60 150, 100 200 T 180 200 T 260 200 T 340 200" opacity="0.85">
+              <animate attributeName="d" dur="1.8s" repeatCount="indefinite"
+                values="M20 200 Q 60 150, 100 200 T 180 200 T 260 200 T 340 200;
+                        M20 200 Q 60 120, 100 200 T 180 220 T 260 180 T 340 200;
+                        M20 200 Q 60 170, 100 200 T 180 180 T 260 220 T 340 200;
+                        M20 200 Q 60 150, 100 200 T 180 200 T 260 200 T 340 200"/>
+            </path>
+            <!-- Pulsing dots along a spiral path -->
+            <g id="dots">
+              <circle r="4" fill="#ef4444">
+                <animateMotion dur="3.2s" repeatCount="indefinite" path="M60,280 C120,340 240,300 290,240 S350,140 320,120" />
+                <animate attributeName="r" values="3;5;3" dur="1.2s" repeatCount="indefinite"/>
+              </circle>
+              <circle r="3" fill="#ef4444" opacity="0.7">
+                <animateMotion dur="3.2s" begin="0.4s" repeatCount="indefinite" path="M60,280 C120,340 240,300 290,240 S350,140 320,120" />
+                <animate attributeName="r" values="2;4;2" dur="1s" repeatCount="indefinite"/>
+              </circle>
+              <circle r="3" fill="#ef4444" opacity="0.6">
+                <animateMotion dur="3.2s" begin="0.8s" repeatCount="indefinite" path="M60,280 C120,340 240,300 290,240 S350,140 320,120" />
+                <animate attributeName="r" values="2;4;2" dur="1s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+          </g>
+
+          <!-- subtle inner glass -->
+          <circle cx="200" cy="200" r="120" fill="none" stroke="#f3f4f6" stroke-width="4" opacity="0.6" />
+        </svg>
+        <div class="hero-copy">
+          <h1 class="hero-title">Patient Vitals Tracker</h1>
+          <div class="loading-tip">Scroll down to continue</div>
+          <button id="scrollNext" class="scroll-cue linklike" aria-label="Scroll to login section">Scroll to login ↓</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header / Nav -->
+    <header class="app-header">
+      <div class="brand-area">
+        <span class="logo-circle-sm">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <circle cx="12" cy="12" r="11" fill="#e0e7ff"/>
+            <path d="M3 12h3l2-4 3 8 2-4h6" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">Vitals Tracker</span>
+      </div>
+      <nav class="tabs">
+        <a href="#/dashboard" data-route data-tab="dashboard">Dashboard</a>
+        <a href="#/profile" data-route data-tab="profile">Profile</a>
+        <a href="#/about" data-route data-tab="about">About</a>
+        <button id="logoutBtn" class="linklike" title="Logout">Logout</button>
+      </nav>
+      <div id="doctorName" class="doctor"></div>
+    </header>
+
+    <main id="app">
+      <!-- Role Selection View -->
+      <section id="role-view" class="view">
+        <div class="card" style="text-align:center">
+          <h2>Continue as</h2>
+          <div class="role-grid">
+            <div class="role-card">
+              <div class="role-icon">🩺</div>
+              <h3>Doctor</h3>
+              <p class="muted-text">Access your assigned patients and monitor vitals.</p>
+              <button id="chooseDoctor" class="btn primary">Doctor Login</button>
+            </div>
+            <div class="role-card">
+              <div class="role-icon">🙂</div>
+              <h3>Patient</h3>
+              <p class="muted-text">Sign in or register to view your records.</p>
+              <button id="choosePatient" class="btn">Patient Login / Register</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Login View -->
+      <section id="login-view" class="view">
+        <!-- Decorative medical background illustration -->
+        <svg class="login-illustration" viewBox="0 0 1200 300" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="lgWave" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#93c5fd"/>
+              <stop offset="50%" stop-color="#60a5fa"/>
+              <stop offset="100%" stop-color="#22d3ee"/>
+            </linearGradient>
+          </defs>
+          <!-- soft radial highlight -->
+          <rect width="1200" height="300" fill="url(#gradBg)" opacity="0"></rect>
+          <!-- dashed baseline grid -->
+          <g opacity="0.25" stroke="#bfdbfe" stroke-width="1">
+            <line x1="0" y1="60" x2="1200" y2="60" stroke-dasharray="4 6"/>
+            <line x1="0" y1="120" x2="1200" y2="120" stroke-dasharray="4 6"/>
+            <line x1="0" y1="180" x2="1200" y2="180" stroke-dasharray="4 6"/>
+          </g>
+          <!-- heartbeat-like wave -->
+          <path d="M0 150 C 80 110, 120 110, 180 150 S 280 190, 330 150 430 80, 470 150 560 210, 620 150 720 110, 760 150 860 190, 900 150 1000 90, 1040 150 1120 190, 1200 150" fill="none" stroke="url(#lgWave)" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <div class="login-wrap">
+          <div class="login-bot-wrap">
+            <div class="login-bot" id="loginBot" aria-hidden="true">
+              <div class="eye left"></div>
+              <div class="eye right"></div>
+              <div class="mouth"></div>
+              <div class="arm left"></div>
+              <div class="arm right"></div>
+            </div>
+          </div>
+          <form id="loginForm" class="card form login-card" aria-label="Login form">
+            <div class="logo-circle" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                <circle cx="12" cy="12" r="11" fill="#e0e7ff"/>
+                <path d="M3 12h3l2-4 3 8 2-4h6" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <h1>Patient Vitals Tracker</h1>
+            <p class="sub">Sign in to access the medical dashboard</p>
+
+            <label>Email
+              <input type="email" id="email" required placeholder="doctor@hospital.com" />
+            </label>
+            <label>Password
+              <input type="password" id="password" required placeholder="Enter your password" />
+            </label>
+            <button id="loginBtn" type="submit" class="btn primary full">Sign In</button>
+
+            <div class="form-footer muted-text">
+              Version 1.0.0 | Support: <a href="mailto:medical-it@hospital.com">medical-it@hospital.com</a>
+            </div>
+          </form>
+
+        </div>
+      </section>
+
+      <!-- Patient Auth View (iframe wrapped) -->
+      <section id="patient-auth-view" class="view hidden">
+        <div class="card" style="padding:0">
+          <iframe src="patient-auth/index.html" title="Patient Login / Register" style="width:100%;height:560px;border:0;border-radius:12px"></iframe>
+        </div>
+      </section>
+
+      <!-- About View (moved below login as requested) -->
+      <section id="about-view" class="view">
+        <div class="about-hero card">
+          <div class="about-icon">
+            <span class="logo-circle">
+              <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                <circle cx="12" cy="12" r="11" fill="#e0f2fe"/>
+                <path d="M3 12h3l2-4 3 8 2-4h6" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+          <div class="about-copy">
+            <h2>About Patient Vitals Tracker</h2>
+            <p class="muted-text">A lightweight interface for monitoring Blood Pressure, Sugar (glucose), and Pulse in real time, designed for clinical workflows.</p>
+            <ul class="bullets">
+              <li>Color-coded alerts and simple trend insights</li>
+              <li>Fast search and patient drill-down</li>
+              <li>Responsive, keyboard accessible UI</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <h3>How it works</h3>
+            <p>Each patient card shows the latest vitals and overall status. The details page renders historical data with charts and flags rising trends.</p>
+          </div>
+          <div class="card">
+            <h3>Privacy & Security</h3>
+            <p>No PHI is stored in this demo. In production, use secure auth, TLS, audit logs, and role-based access control.</p>
+          </div>
+          <div class="card">
+            <h3>Tech Stack</h3>
+            <ul class="bullets">
+              <li>Frontend: HTML/CSS/JS (no build needed)</li>
+              <li>Charts: Chart.js via CDN</li>
+              <li>Routing: simple hash router</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>FAQ</h3>
+            <details>
+              <summary>Can I plug in a real API?</summary>
+              <p>Yes. Replace the mock login and patient generator in <code>app.js</code> with your endpoints.</p>
+            </details>
+            <details>
+              <summary>Can I export charts?</summary>
+              <p>Chart.js supports image export via canvas. A button can be added to call <code>toBase64Image()</code>.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard View -->
+      <section id="dashboard-view" class="view hidden">
+        <div class="page-head">
+          <h1>Patient Dashboard</h1>
+          <p class="muted-text">Monitor vital signs and health status of your patients</p>
+        </div>
+        <div class="toolbar card">
+          <div class="searchbox">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="#94a3b8" fill="none" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="search" type="search" placeholder="Search by name or MRN…" />
+          </div>
+        </div>
+        <div id="patientsGrid" class="grid cards-v2"></div>
+      </section>
+
+      <!-- Patient Details View -->
+      <section id="patient-view" class="view hidden">
+        <button class="btn" onclick="window.location.hash='#/dashboard'">← Back to Dashboard</button>
+        <div id="patientHeader" class="patient-header"></div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Current Readings</h3>
+            <div id="currentReadings" class="stats"></div>
+            <div id="alerts" class="alerts"></div>
+          </div>
+          <div class="card">
+            <h3>Blood Pressure</h3>
+            <canvas id="bpChart" height="120"></canvas>
+          </div>
+          <div class="card">
+            <h3>Sugar Level</h3>
+            <canvas id="sugarChart" height="120"></canvas>
+          </div>
+          <div class="card">
+            <h3>Pulse</h3>
+            <canvas id="pulseChart" height="120"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Profile View -->
+      <section id="profile-view" class="view hidden">
+        <div class="card">
+          <h2>Doctor Profile</h2>
+          <div class="profile-fields">
+            <div><strong>Name:</strong> <span id="profileName">—</span></div>
+            <div><strong>Email:</strong> <span id="profileEmail">—</span></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-z3rGfJmCEWHlLAx4I65c4fQGuhg5pY0pxX0nCAm6d2mJb9+o5Rr7Sx+7pQF1uS4c" crossorigin="anonymous"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

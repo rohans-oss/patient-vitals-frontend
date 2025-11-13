@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#f9fafb;color:#111827;font-family:Poppins,system-ui,sans-serif}
+.container{position:relative;width:750px;max-width:95vw;height:450px;margin:40px auto;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;border-radius:16px;background:#ffffff}
+.container .form-box{position:absolute;top:0;width:50%;height:100%;display:flex;justify-content:center;flex-direction:column}
+.form-box.Login{left:0;padding:0 40px;display:flex}
+.form-box.Register{right:0;padding:0 60px;display:none}
+.form-box h2{font-size:32px;text-align:center}
+.input-box{position:relative;width:100%;height:50px;margin-top:25px}
+.input-box input{width:100%;height:100%;background:transparent;border:none;outline:none;font-size:16px;color:#111827;font-weight:600;border-bottom:2px solid #e5e7eb;padding-right:23px;transition:.3s}
+.input-box input:focus,.input-box input:valid{border-bottom-color:#2563eb}
+.input-box label{position:absolute;top:50%;left:0;transform:translateY(-50%);font-size:16px;color:#6b7280;transition:.3s}
+.input-box input:focus~label,.input-box input:valid~label{top:-5px;color:#2563eb}
+.input-box box-icon{position:absolute;top:50%;right:0;transform:translateY(-50%);color:#9ca3af}
+.input-box input:focus~box-icon,.input-box input:valid~box-icon{color:#2563eb}
+.btn{position:relative;width:100%;height:45px;background:#2563eb;border-radius:10px;cursor:pointer;font-size:16px;font-weight:600;border:1px solid #2563eb;color:#ffffff}
+.btn::before{display:none}
+.btn:hover{filter:brightness(.96)}
+.regi-link{font-size:14px;text-align:center;margin:20px 0 10px}
+.regi-link a{color:#2563eb;text-decoration:none;font-weight:600}
+.regi-link a:hover{text-decoration:underline}
+.info-content{position:absolute;top:0;height:100%;width:50%;display:flex;justify-content:center;flex-direction:column}
+.info-content.Login{right:0;text-align:right;padding:0 40px 60px 150px;display:flex}
+.info-content.Register{left:0;text-align:left;padding:0 150px 60px 38px;pointer-events:none;display:none}
+.animation{opacity:1;transition:.7s ease}
+/* Simple state switch */
+.container.active .form-box.Login{display:none}
+.container.active .info-content.Login{display:none}
+.container.active .form-box.Register{display:flex}
+.container.active .info-content.Register{display:flex}
+/* Keep basic motion */
+.container.active .form-box.Login .animation{transform:translateX(-120%);opacity:0}
+.container.active .info-content.Login .animation{transform:translateX(120%);opacity:0}
+.form-box.Register .animation{transform:translateX(120%);opacity:0}
+.container.active .form-box.Register .animation{transform:translateX(0);opacity:1}
+.container.active .info-content.Register .animation{transform:translateX(0);opacity:1}
+.curved-shape{position:absolute;right:0;top:-5px;height:600px;width:850px;background:linear-gradient(45deg,#e0f2fe,#bfdbfe);transform:rotate(10deg) skewY(40deg);transform-origin:bottom right;transition:1.5s ease}
+.container.active .curved-shape{transform:rotate(0) skewY(0)}
+.curved-shape2{position:absolute;left:250px;top:100%;height:700px;width:850px;background:#ffffff;border-top:1px solid #e5e7eb;transform:rotate(0) skewY(0);transform-origin:bottom left;transition:1.5s ease}
+.container.active .curved-shape2{transform:rotate(-11deg) skewY(-41deg)}
+
