@@ -1,14 +1,16 @@
 /* Simple SPA logic + demo data */
 (function(){
+  const API_BASE_URL = 'http://localhost:4000/api';
   const $ = (q, root=document) => root.querySelector(q);
   const $$ = (q, root=document) => Array.from(root.querySelectorAll(q));
 
   // Splash is a persistent hero at the top; no auto-hide
 
-  // Basic state
+// Basic state
   const state = {
-    user: null,
-    patients: generatePatients(),
+    user: JSON.parse(localStorage.getItem('doctorUser')) || null,
+    token: localStorage.getItem('doctorToken') || null,
+    patients: [], // Will be loaded from API
     firstLoad: true,
   };
 
@@ -20,25 +22,73 @@
   const profileView = $('#profile-view');
   const aboutView = $('#about-view');
 
-  // Login handling (mock auth)
-  function handleLogin(e){
+  // Login handling (real auth)
+  async function handleLogin(e){
     if(e) e.preventDefault();
     const email = $('#email').value.trim();
     const password = $('#password').value;
     if(!email || !password){ return false; }
     const btn = $('#loginBtn');
     if(!btn) return false;
+    
     btn.classList.add('loading');
     const prev = btn.textContent; btn.textContent = 'Signing in…';
     btn.disabled = true;
-    setTimeout(()=>{
-      state.user = { name: 'Dr. Ada Lovelace', email };
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+  
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+  
+      // Assuming backend sends { token, user: { name, email, ... } }
+      state.user = data.user;
+      state.token = data.token;
+      localStorage.setItem('doctorUser', JSON.stringify(data.user));
+      localStorage.setItem('doctorToken', data.token);
+  
       updateHeader();
       window.location.hash = '#/dashboard';
+    } catch (err) {
+      console.error(err);
+      alert(err.message); // Simple error feedback
+    } finally {
       btn.disabled = false; btn.classList.remove('loading'); btn.textContent = prev;
-    }, 300);
+    }
     return false;
   }
+  
+  async function fetchPatients() {
+    if (!state.token) {
+      return showView('login'); // Redirect to login if no token
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/patients`, {
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+
+      if (res.status === 401) {
+         $('#logoutBtn').click(); // Token expired or invalid
+         return;
+      }
+      if (!res.ok) {
+         throw new Error('Failed to fetch patients');
+      }
+      
+      state.patients = await res.json(); // Expects an array of patients
+      renderDashboard(); // Now render with the fetched data
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    }
+  }
+
   const lf = $('#loginForm');
   if(lf){ lf.addEventListener('submit', handleLogin); }
   const lb = $('#loginBtn');
@@ -46,6 +96,9 @@
 
   $('#logoutBtn').addEventListener('click', ()=>{
     state.user = null;
+    state.token = null;
+    localStorage.removeItem('doctorUser');
+    localStorage.removeItem('doctorToken');
     updateHeader();
     window.location.hash = '#/login';
   });
@@ -63,11 +116,14 @@
     const [_, page, id] = hash.split('/');
     showView(page, id);
     setActiveTab(page);
+    if (state.user) {
+      updateHeader();
+    }
     state.firstLoad = false;
   }
 
   function showView(page, id){
-    const authed = !!state.user;
+    const authed = !!state.token;
     // Hide all views first
     roleView && roleView.classList.add('hidden');
     loginView && loginView.classList.add('hidden');
@@ -93,7 +149,7 @@
     switch(page){
       case 'dashboard':
         dashView.classList.remove('hidden');
-        renderDashboard();
+        fetchPatients();
         break;
       case 'patient':
         patientView.classList.remove('hidden');
@@ -137,111 +193,151 @@
     grid.innerHTML = '';
 
     state.patients
-      .filter(p => p.name.toLowerCase().includes(query) || p.id.toLowerCase().includes(query))
+      .filter(p => p.name.toLowerCase().includes(query) || (p._id && p._id.toLowerCase().includes(query)))
       .forEach(p => grid.appendChild(patientCard(p)));
   }
 
   function patientCard(p){
-    const latest = p.history[p.history.length-1];
-    const level = alertLevel(latest);
     const el = document.createElement('div');
     el.className = 'card pcard';
-    const ago = timeAgo(p.history[p.history.length-1].time);
+    
+    // Backend patient schema has name, dob, gender, contact
+    const dob = p.dob ? new Date(p.dob).toLocaleDateString() : 'N/A';
+    
     el.innerHTML = `
       <div class="row">
         <div>
           <div style="font-weight:700">${p.name}</div>
-          <div class="small">MRN: ${p.id}</div>
+          <div class="small">MRN: ${p._id}</div>
         </div>
-        <span class="pill ${level}">${levelLabel(level)}</span>
-      </div>
-      <div class="metric-grid">
+        </div>
+      <div class="metric-grid" style="min-height: 80px; align-content: center; padding: 1.25rem 0;">
         <div class="metric">
-          <div class="label">BP</div>
-          <div class="value">${latest.bp.sys}/${latest.bp.dia}</div>
-          <div class="unit">mmHg</div>
+          <div class="label">Gender</div>
+          <div class="value" style="font-size: 1.1rem;">${p.gender || 'N/A'}</div>
         </div>
         <div class="metric">
-          <div class="label">Sugar</div>
-          <div class="value">${latest.sugar}</div>
-          <div class="unit">mg/dL</div>
-        </div>
-        <div class="metric">
-          <div class="label">Pulse</div>
-          <div class="value">${latest.pulse}</div>
-          <div class="unit">bpm</div>
+          <div class="label">DOB</div>
+          <div class="value" style="font-size: 1.1rem;">${dob}</div>
         </div>
       </div>
-      <div class="card-foot">Updated ${ago}</div>
+      <div class="card-foot">Contact: ${p.contact || 'N/A'}</div>
     `;
     el.style.cursor = 'pointer';
     el.addEventListener('click', ()=>{
-      window.location.hash = `#/patient/${p.id}`;
+      window.location.hash = `#/patient/${p._id}`;
     });
     return el;
   }
 
   // Patient view
   let charts = {};
-  function renderPatient(id){
-    const p = state.patients.find(x=>x.id===id);
-    if(!p){ return; }
-    $('#patientHeader').innerHTML = `<h2>${p.name}</h2><div class="small">ID: ${p.id}</div>`;
-
-    const latest = p.history[p.history.length-1];
-    $('#currentReadings').innerHTML = `
-      ${stat('Blood Pressure', `${latest.bp.sys}/${latest.bp.dia} mmHg`)}
-      ${stat('Sugar', `${latest.sugar} mg/dL`)}
-      ${stat('Pulse', `${latest.pulse} bpm`)}
-    `;
-
-    // Alerts
-    const msgs = detectAlerts(p.history);
-    const alerts = $('#alerts');
-    alerts.innerHTML = '';
-    if(msgs.length === 0){
-      alerts.appendChild(alert('All vitals in acceptable range.', 'ok'));
-    } else {
-      msgs.forEach(m => alerts.appendChild(alert(m.message, m.level)));
+  async function renderPatient(id){
+    if (!state.token) {
+      return showView('login');
     }
-
-    // Charts
-    const labels = p.history.map(h=> new Date(h.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
-    const bpSys = p.history.map(h=>h.bp.sys);
-    const bpDia = p.history.map(h=>h.bp.dia);
-    const sugar = p.history.map(h=>h.sugar);
-    const pulse = p.history.map(h=>h.pulse);
-
+  
+    // Clear previous patient's charts
     charts.bp && charts.bp.destroy();
     charts.sugar && charts.sugar.destroy();
     charts.pulse && charts.pulse.destroy();
+    $('#alerts').innerHTML = '';
+    $('#currentReadings').innerHTML = '';
 
-    const gridColor = '#e5e7eb';
+    try {
+      // 1. Fetch patient details
+      const patientRes = await fetch(`${API_BASE_URL}/patients/${id}`, {
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+      if (patientRes.status === 401) return $('#logoutBtn').click();
+      if (!patientRes.ok) throw new Error('Failed to load patient details.');
+      const p = await patientRes.json();
+  
+      // 2. Fetch patient vitals
+      const vitalsRes = await fetch(`${API_BASE_URL}/vitals/patient/${id}`, {
+        headers: { 'Authorization': `Bearer ${state.token}` }
+      });
+      if (vitalsRes.status === 401) return $('#logoutBtn').click();
+      if (!vitalsRes.ok) throw new Error('Failed to load patient vitals.');
+      const backendVitals = await vitalsRes.json();
+  
+      // 3. Map backend vitals to frontend history format
+      // Backend: { timestamp, bloodPressure: { systolic, diastolic }, sugarMgDl, pulse }
+      // Frontend: { time, bp: { sys, dia }, sugar, pulse }
+      const history = backendVitals.map(v => ({
+        time: v.timestamp,
+        bp: { 
+          sys: v.bloodPressure?.systolic, 
+          dia: v.bloodPressure?.diastolic 
+        },
+        sugar: v.sugarMgDl,
+        pulse: v.pulse,
+        notes: v.notes
+      })).sort((a, b) => new Date(a.time) - new Date(b.time)); // Ensure sorted
+  
+      // 4. Start rendering
+      $('#patientHeader').innerHTML = `<h2>${p.name}</h2><div class="small">ID: ${p._id}</div>`;
 
-    charts.bp = new Chart($('#bpChart'), {
-      type: 'line',
-      data: { labels, datasets:[
-        {label: 'Systolic', data: bpSys, borderColor:'#2563eb', tension:.35},
-        {label: 'Diastolic', data: bpDia, borderColor:'#10b981', tension:.35}
-      ]},
-      options: baseChartOptions(gridColor, [120, 80])
-    });
-
-    charts.sugar = new Chart($('#sugarChart'), {
-      type: 'line',
-      data: { labels, datasets:[
-        {label: 'Glucose (mg/dL)', data: sugar, borderColor:'#f59e0b', tension:.35}
-      ]},
-      options: baseChartOptions(gridColor, [200, 70])
-    });
-
-    charts.pulse = new Chart($('#pulseChart'), {
-      type: 'line',
-      data: { labels, datasets:[
-        {label: 'Pulse (bpm)', data: pulse, borderColor:'#ef4444', tension:.35}
-      ]},
-      options: baseChartOptions(gridColor, [120, 50])
-    });
+      if (!history.length) {
+         $('#alerts').appendChild(alert('No vitals recorded for this patient yet.', 'warn'));
+         return;
+      }
+  
+      // 5. Continue with existing render logic, using fetched data
+      const latest = history[history.length-1];
+      $('#currentReadings').innerHTML = `
+        ${stat('Blood Pressure', `${latest.bp.sys || 'N/A'}/${latest.bp.dia || 'N/A'} mmHg`)}
+        ${stat('Sugar', `${latest.sugar || 'N/A'} mg/dL`)}
+        ${stat('Pulse', `${latest.pulse || 'N/A'} bpm`)}
+      `;
+  
+      // Alerts
+      const msgs = detectAlerts(history);
+      const alerts = $('#alerts');
+      if(msgs.length === 0){
+        alerts.appendChild(alert('All vitals in acceptable range.', 'ok'));
+      } else {
+        msgs.forEach(m => alerts.appendChild(alert(m.message, m.level)));
+      }
+  
+      // Charts
+      const labels = history.map(h=> new Date(h.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+      const bpSys = history.map(h=>h.bp.sys);
+      const bpDia = history.map(h=>h.bp.dia);
+      const sugar = history.map(h=>h.sugar);
+      const pulse = history.map(h=>h.pulse);
+  
+      const gridColor = '#e5e7eb';
+  
+      charts.bp = new Chart($('#bpChart'), {
+        type: 'line',
+        data: { labels, datasets:[
+          {label: 'Systolic', data: bpSys, borderColor:'#2563eb', tension:.35},
+          {label: 'Diastolic', data: bpDia, borderColor:'#10b981', tension:.35}
+        ]},
+        options: baseChartOptions(gridColor, [120, 80])
+      });
+  
+      charts.sugar = new Chart($('#sugarChart'), {
+        type: 'line',
+        data: { labels, datasets:[
+          {label: 'Glucose (mg/dL)', data: sugar, borderColor:'#f59e0b', tension:.35}
+        ]},
+        options: baseChartOptions(gridColor, [200, 70])
+      });
+  
+      charts.pulse = new Chart($('#pulseChart'), {
+        type: 'line',
+        data: { labels, datasets:[
+          {label: 'Pulse (bpm)', data: pulse, borderColor:'#ef4444', tension:.35}
+        ]},
+        options: baseChartOptions(gridColor, [120, 50])
+      });
+  
+    } catch (err) {
+       console.error(err);
+       alert(err.message);
+    }
   }
 
   function setActiveTab(page){
@@ -331,38 +427,5 @@
     }
     return alerts;
   }
-
-  function generatePatients(){
-    const now = Date.now();
-    const mkHist = (n, seed) => Array.from({length:n}, (_,i)=>{
-      const t = now - (n-i)*60*60*1000; // hourly
-      return {
-        time: t,
-        bp: { sys: clamp(108 + jitter(seed, i, 18), 95, 170), dia: clamp(70 + jitter(seed*1.3, i, 12), 55, 110) },
-        sugar: clamp(92 + jitter(seed*2.1, i, 60), 55, 260),
-        pulse: clamp(74 + jitter(seed*3.1, i, 40), 40, 140)
-      };
-    });
-
-    return [
-      { id:'P-1001', name:'John Carter', history: mkHist(24, 1.2) },
-      { id:'P-1002', name:'Mary Johnson', history: mkHist(24, 2.8) },
-      { id:'P-1003', name:'Rahul Singh', history: mkHist(24, 3.3) },
-      { id:'P-1004', name:'Chen Wei', history: mkHist(24, 4.7) },
-      { id:'P-1005', name:'Ana Souza', history: mkHist(24, 5.5) },
-    ];
-  }
-
-  function jitter(seed, i, amp){
-    // pseudo-random deterministic oscillation
-    const x = Math.sin(seed*10 + i*0.9) + Math.cos(seed*3 + i*0.45);
-    return Math.round(x * amp);
-  }
-  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
-  function timeAgo(ts){
-    const mins = Math.max(1, Math.round((Date.now()-ts)/60000));
-    if(mins < 60) return `${mins} minute${mins>1?'s':''} ago`;
-    const hrs = Math.round(mins/60);
-    return `${hrs} hour${hrs>1?'s':''} ago`;
-  }
+  
 })();
